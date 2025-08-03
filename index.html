@@ -1,72 +1,132 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>あかね台夏祭り25 アンケート途中結果報告</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0;
-            font-family: sans-serif;
-            background-color: #f0f0f0;
-        }
-        /* コンテンツ全体のラッパー (任意: 大画面での幅を制限) */
-        .wrapper {
-            max-width: 800px; /* PCなど大画面での最大幅 */
-            margin: 20px auto; /* 中央揃え */
-            background-color: #ffffff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
             padding: 20px;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 中央寄せ */
         }
         h1 {
-            text-align: center;
-            color: #333;
-        }
-        p {
-            text-align: center;
             margin-bottom: 20px;
+            color: #333;
+            text-align: center;
         }
-        /* PDFをレスポンシブに埋め込むためのコンテナ */
-        .pdf-responsive-container {
-            position: relative;
-            /* A4縦向きの縦横比を維持 (高さ/幅 = 297/210 = 1.414) */
-            padding-bottom: 141.4%; /* これにより、幅に対する高さの比率が維持されます */
-            height: 0; /* padding-bottomで高さを確保するため、heightは0 */
-            overflow: hidden; /* コンテナ外にはみ出る内容を非表示に */
-            background-color: #e0e0e0; /* PDF読み込み中の背景色 */
-        }
-        /* 埋め込まれたPDFオブジェクト */
-        .pdf-embed {
-            position: absolute;
-            top: 0;
-            left: 0;
+        .pdf-container {
+            margin-bottom: 30px;
+            text-align: center;
             width: 100%;
-            height: 100%;
-            border: none;
+            max-width: 800px; /* 最大幅を設定してPC表示で広がりすぎないように */
+            background-color: #ffffff;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-
-        /* スマートフォンなど小画面での調整 */
-        @media (max-width: 768px) {
-            .wrapper {
-                margin: 10px;
-                padding: 10px;
-            }
+        .pdf-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            color: #555;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto 10px auto; /* 中央揃えと下マージン */
+            border: 1px solid #ccc;
+            max-width: 100%; /* 親要素の幅に合わせて縮小 */
+            height: auto; /* 縦横比を維持 */
+        }
+        .loading-message {
+            text-align: center;
+            font-style: italic;
+            color: #777;
+        }
+        .error-message {
+            text-align: center;
+            color: red;
         }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <h1>あかね台夏祭り25 アンケート途中結果報告</h1>
-        <p>スマートフォンから快適にご覧いただけます。</p>
 
-        <div class="pdf-responsive-container">
-            <object class="pdf-embed" data="夏祭り途中報告250803.pdf" type="application/pdf">
-                <p>お使いのブラウザではPDFを表示できません。以下のリンクからダウンロードしてください。</p>
-                <p><a href="夏祭り途中報告250803.pdf" download>PDFをダウンロード</a></p>
-            </object>
-        </div>
-        <p style="margin-top: 20px;">PDFの表示に問題がある場合は、上記のダウンロードリンクをご利用ください。</p>
-    </div>
+    <h1>あかね台夏祭り25 アンケート途中結果報告</h1>
+    <p class="loading-message" id="loading-status">PDFを読み込み中です... しばらくお待ちください。</p>
+    <div id="pdf-list"></div>
+    <p style="margin-top: 30px; text-align: center;">
+        PDFの表示に問題がある場合は、<a href="夏祭り途中報告250803.pdf" download>こちらからPDFをダウンロード</a>してください。
+    </p>
+
+    <script>
+        const pdfConfig = {
+            name: "夏祭り途中報告250803.pdf",
+            path: "夏祭り途中報告250803.pdf" // PDFファイルのパス
+        };
+
+        const pdfListDiv = document.getElementById('pdf-list');
+        const loadingStatusDiv = document.getElementById('loading-status');
+
+        async function renderPDF(name, url) {
+            const container = document.createElement('div');
+            container.className = 'pdf-container';
+            pdfListDiv.appendChild(container); // まずコンテナを追加
+
+            const title = document.createElement('div');
+            title.className = 'pdf-title';
+            title.textContent = name;
+            container.appendChild(title);
+
+            try {
+                const loadingTask = pdfjsLib.getDocument(url);
+                const pdf = await loadingTask.promise;
+
+                loadingStatusDiv.textContent = `PDFを読み込み中... (${pdf.numPages}ページ)`;
+
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    // ビューポートのスケールを調整
+                    // スマートフォンでは幅を合わせるため、幅基準でスケールを計算
+                    const desiredWidth = Math.min(window.innerWidth - 40, 780); // 画面幅-余白 or 最大800px
+                    const viewport = page.getViewport({ scale: 1 });
+                    const scale = desiredWidth / viewport.width;
+                    const scaledViewport = page.getViewport({ scale: scale });
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = scaledViewport.height;
+                    canvas.width = scaledViewport.width;
+                    container.appendChild(canvas);
+
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: scaledViewport
+                    };
+                    await page.render(renderContext).promise;
+                    loadingStatusDiv.textContent = `ページ ${pageNum}/${pdf.numPages} を表示しました。`;
+                }
+                loadingStatusDiv.style.display = 'none'; // 全てのページ表示後、ローディングメッセージを非表示に
+            } catch (error) {
+                loadingStatusDiv.className = 'error-message';
+                loadingStatusDiv.textContent = 'PDFの読み込みに失敗しました。ファイルが正しい場所にあるかご確認ください。';
+                console.error('Error loading PDF:', error);
+            }
+        }
+
+        // PDFをレンダリング
+        (async () => {
+            await renderPDF(pdfConfig.name, pdfConfig.path);
+        })();
+    </script>
+
 </body>
 </html>
